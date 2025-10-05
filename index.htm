@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Photo Collage Maker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+        .preview-container-bg {
+             background-color: #f0f0f0;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .custom-file-upload {
+            border: 2px solid #facc15;
+            display: inline-block;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #facc15;
+            color: #1f2937;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .custom-file-upload:hover {
+            background-color: #fde047;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #facc15;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        input[type="color"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 56px;
+            height: 56px;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border-radius: 50%;
+            border: 2px solid #e5e7eb;
+        }
+        input[type="color"]::-moz-color-swatch {
+            border-radius: 50%;
+            border: 2px solid #e5e7eb;
+        }
+        #collageCanvas {
+            cursor: grab;
+            touch-action: none; /* Prevents scrolling on canvas */
+        }
+        #collageCanvas:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800">Retro Photo Collage</h1>
+            <p class="text-gray-500 mt-2">Create a beautiful, scrapbook-style collage in seconds.</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+
+            <!-- Controls Panel -->
+            <div class="lg:w-1/3 bg-white p-6 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-bold mb-4 border-b pb-2">Your Studio</h2>
+                
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="font-semibold text-lg mb-2">1. Upload Photos</h3>
+                        <label for="imageUpload" class="custom-file-upload w-full text-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Choose Images
+                        </label>
+                        <input type="file" id="imageUpload" accept="image/*" multiple>
+                        <p id="upload-message" class="text-xs text-gray-500 mt-2">Special templates are used for 3, 4, 5, and 7 photos!</p>
+                    </div>
+
+                    <div id="thumbnails" class="grid grid-cols-3 sm:grid-cols-4 gap-2"></div>
+                    
+                    <div>
+                        <h3 class="font-semibold text-lg mb-2">2. Choose Background Color</h3>
+                        <div class="flex items-center gap-4">
+                             <input type="color" id="bgColorPicker" value="#FFFFFF" class="p-1 h-14 w-14 border border-gray-300 rounded-full">
+                             <span id="color-value" class="font-mono text-gray-600 bg-gray-100 p-2 rounded-md">#FFFFFF</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="font-semibold text-lg mb-2">3. Download</h3>
+                        <button id="downloadBtn" class="w-full bg-gray-800 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Download Collage
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas/Preview Panel -->
+            <div class="lg:w-2/3 bg-white p-4 rounded-2xl shadow-lg preview-container-bg relative aspect-square">
+                 <div id="loader" class="absolute inset-0 hidden flex-col items-center justify-center z-20">
+                    <div class="loader"></div>
+                    <p class="mt-2 text-gray-600 font-medium">Generating your collage...</p>
+                </div>
+                <div id="placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-center text-gray-500 p-4 z-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <h3 class="text-xl font-semibold">Your Collage Preview</h3>
+                    <p>Upload your photos to get started!</p>
+                </div>
+                <canvas id="collageCanvas" class="hidden absolute top-0 left-0 w-full h-full rounded-lg"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const thumbnailsContainer = document.getElementById('thumbnails');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const canvas = document.getElementById('collageCanvas');
+        const placeholder = document.getElementById('placeholder');
+        const loader = document.getElementById('loader');
+        const uploadMessage = document.getElementById('upload-message');
+        const bgColorPicker = document.getElementById('bgColorPicker');
+        const colorValueSpan = document.getElementById('color-value');
+        const ctx = canvas.getContext('2d');
+
+        let images = [];
+        let offsetX = 0, offsetY = 0;
+        let heartImageOffsetX = 0, heartImageOffsetY = 0;
+
+        let isDragging = false, isDraggingHeartImage = false;
+        let startX, startY, initialOffsetX, initialOffsetY;
+        let initialHeartOffsetX, initialHeartOffsetY;
+
+        imageUpload.addEventListener('change', handleImageUpload);
+        downloadBtn.addEventListener('click', downloadCollage);
+        bgColorPicker.addEventListener('input', () => {
+             colorValueSpan.textContent = bgColorPicker.value.toUpperCase();
+             if (images.length > 0) drawCollage();
+        });
+
+        canvas.addEventListener('mousedown', startDrag);
+        canvas.addEventListener('mousemove', drag);
+        canvas.addEventListener('mouseup', endDrag);
+        canvas.addEventListener('mouseleave', endDrag);
+        canvas.addEventListener('mousemove', updateCursor);
+
+        canvas.addEventListener('touchstart', startDrag, { passive: false });
+        canvas.addEventListener('touchmove', drag, { passive: false });
+        canvas.addEventListener('touchend', endDrag);
+
+        function handleImageUpload(event) {
+            const files = event.target.files;
+            if (files.length === 0) return;
+            
+            offsetX = 0; offsetY = 0;
+            heartImageOffsetX = 0; heartImageOffsetY = 0;
+
+            placeholder.classList.add('hidden');
+            canvas.classList.add('hidden');
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+            downloadBtn.disabled = true;
+
+            images = [];
+            thumbnailsContainer.innerHTML = ''; 
+
+            if ([3, 4, 5, 7].includes(files.length)) {
+                 uploadMessage.textContent = `Perfect! The special template for ${files.length} photos is being used.`;
+                 if (files.length === 5) {
+                     bgColorPicker.value = '#FFFFFF';
+                     colorValueSpan.textContent = '#FFFFFF';
+                 }
+            } else if (files.length > 7) {
+                uploadMessage.textContent = `Note: Using a scattered layout for ${files.length} photos.`;
+            } else {
+                uploadMessage.textContent = `${files.length} photo${files.length !== 1 ? 's' : ''} selected. A custom layout has been applied.`;
+            }
+
+            let loadedCount = 0;
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        images.push(img);
+                        loadedCount++;
+                        const thumb = document.createElement('img');
+                        thumb.src = e.target.result;
+                        thumb.className = 'w-full h-auto object-cover rounded-md shadow-sm';
+                        thumbnailsContainer.appendChild(thumb);
+                        if (loadedCount === files.length) setTimeout(drawCollage, 100);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        function drawCollage() {
+            if (images.length === 0) return;
+            const maxWidth = 1200;
+            canvas.width = maxWidth;
+            canvas.height = maxWidth;
+            
+            ctx.fillStyle = bgColorPicker.value;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (images.length === 5) {
+                drawFivePhotoTemplate();
+            } else {
+                 ctx.save();
+                 ctx.translate(offsetX, offsetY);
+                 drawScrapbookLayout();
+                 ctx.restore();
+            }
+
+            loader.classList.add('hidden');
+            loader.classList.remove('flex');
+            canvas.classList.remove('hidden');
+            downloadBtn.disabled = false;
+        }
+
+        function drawScrapbookLayout() {
+            const photoCount = images.length;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            switch (photoCount) {
+                case 1: drawSinglePhoto(images[0], centerX, centerY, canvas.width * 0.6, 0.05); break;
+                case 2:
+                    drawSinglePhoto(images[0], centerX - canvas.width * 0.15, centerY, canvas.width * 0.45, -0.1);
+                    drawSinglePhoto(images[1], centerX + canvas.width * 0.15, centerY, canvas.width * 0.45, 0.1);
+                    break;
+                case 3:
+                    const size3 = canvas.width * 0.45;
+                    drawSinglePhoto(images[0], centerX - canvas.width * 0.18, centerY - canvas.height * 0.20, size3, -0.12);
+                    drawSinglePhoto(images[1], centerX + canvas.width * 0.18, centerY - canvas.height * 0.05, size3, 0.1);
+                    drawSinglePhoto(images[2], centerX, centerY + canvas.height * 0.23, size3, -0.05);
+                    break;
+                case 4:
+                    const largeSize4 = canvas.width * 0.55;
+                    const smallSize4 = canvas.width * 0.3;
+                    const topY4 = centerY - canvas.height * 0.22;
+                    const bottomY4 = centerY + canvas.height * 0.25;
+                    const bottomOffsetX4 = canvas.width * 0.28;
+                    drawSinglePhoto(images[0], centerX, topY4, largeSize4, 0.02);
+                    drawSinglePhoto(images[1], centerX - bottomOffsetX4, bottomY4, smallSize4, -0.1);
+                    drawSinglePhoto(images[2], centerX, bottomY4 + 40, smallSize4, 0.05); 
+                    drawSinglePhoto(images[3], centerX + bottomOffsetX4, bottomY4, smallSize4, 0.12);
+                    break;
+                case 6:
+                    const size6 = canvas.width * 0.3;
+                    const offsetX6 = canvas.width * 0.25;
+                    const offsetY6 = canvas.width * 0.18;
+                    drawSinglePhoto(images[0], centerX - offsetX6, centerY - offsetY6, size6, 0.1);
+                    drawSinglePhoto(images[1], centerX, centerY - offsetY6, size6, -0.05);
+                    drawSinglePhoto(images[2], centerX + offsetX6, centerY - offsetY6, size6, 0.12);
+                    drawSinglePhoto(images[3], centerX - offsetX6, centerY + offsetY6, size6, -0.1);
+                    drawSinglePhoto(images[4], centerX, centerY + offsetY6, size6, 0.08);
+                    drawSinglePhoto(images[5], centerX + offsetX6, centerY + offsetY6, size6, -0.15);
+                    break;
+                case 7:
+                    const photoSize7 = canvas.width * 0.28;
+                    const radius7 = canvas.width * 0.3;
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (i / 6) * 2 * Math.PI + (Math.PI / 6);
+                        drawSinglePhoto(images[i], centerX + radius7 * Math.cos(angle), centerY + radius7 * Math.sin(angle), photoSize7, (Math.random() - 0.5) * 0.2);
+                    }
+                    drawSinglePhoto(images[6], centerX, centerY, photoSize7 * 1.1, (Math.random() - 0.5) * 0.1);
+                    break;
+                default:
+                    images.forEach((img, i) => {
+                        const padding = 0.2 * canvas.width;
+                        const x = (Math.sin(i * 2.3) * 0.5 + 0.5) * (canvas.width - padding) + padding / 2;
+                        const y = (Math.cos(i * 3.1) * 0.5 + 0.5) * (canvas.height - padding) + padding / 2;
+                        drawSinglePhoto(img, x, y, canvas.width * 0.35, (Math.sin(i * 1.5) * 0.5) * 0.2);
+                    });
+                    break;
+            }
+        }
+        
+        function drawFivePhotoTemplate() {
+            const halfW = canvas.width / 2;
+            const halfH = canvas.height / 2;
+            
+            drawCroppedImage(images[0], 0, 0, halfW, halfH);
+            drawCroppedImage(images[1], halfW, 0, halfW, halfH);
+            drawCroppedImage(images[2], 0, halfH, halfW, halfH);
+            drawCroppedImage(images[3], halfW, halfH, halfW, halfH);
+            
+            const heartSize = canvas.width * 0.42;
+            ctx.save();
+            ctx.beginPath();
+            drawHeartPath(halfW, halfH, heartSize);
+            ctx.clip();
+            const imgSize = heartSize * 2.2; 
+            drawCroppedImage(images[4], (halfW - imgSize / 2) + heartImageOffsetX, (halfH - imgSize / 2) + heartImageOffsetY, imgSize, imgSize);
+            ctx.restore();
+
+            ctx.strokeStyle = bgColorPicker.value;
+            ctx.lineWidth = 20;
+
+            ctx.beginPath();
+            drawHeartPath(halfW, halfH, heartSize);
+            ctx.stroke();
+
+            const heartTop = halfH - heartSize * 0.3;
+            const heartBottom = halfH + heartSize * 0.45;
+            const heartLeft = halfW - heartSize * 0.5;
+            const heartRight = halfW + heartSize * 0.5;
+            
+            ctx.beginPath();
+            ctx.moveTo(halfW, 0); ctx.lineTo(halfW, heartTop);
+            ctx.moveTo(halfW, canvas.height); ctx.lineTo(halfW, heartBottom);
+            ctx.moveTo(0, halfH); ctx.lineTo(heartLeft, halfH);
+            ctx.moveTo(canvas.width, halfH); ctx.lineTo(heartRight, halfH);
+            ctx.stroke();
+        }
+
+        function drawHeartPath(cx, cy, size) {
+            ctx.moveTo(cx, cy + size * 0.45); 
+            ctx.bezierCurveTo(cx - size * 0.8, cy, cx - size * 0.5, cy - size * 0.6, cx, cy - size * 0.3);
+            ctx.bezierCurveTo(cx + size * 0.5, cy - size * 0.6, cx + size * 0.8, cy, cx, cy + size * 0.45);
+        }
+
+        function drawCroppedImage(img, dx, dy, dWidth, dHeight) {
+             const imgRatio = img.width / img.height;
+             const destRatio = dWidth / dHeight;
+             let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
+             if (imgRatio > destRatio) {
+                 sWidth = img.height * destRatio;
+                 sx = (img.width - sWidth) / 2;
+             } else {
+                 sHeight = img.width / destRatio;
+                 sy = (img.height - sHeight) / 2;
+             }
+             ctx.drawImage(img, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+        }
+
+        function drawSinglePhoto(img, x, y, size, rotation) {
+            const border = size * 0.05;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotation);
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 5;
+            ctx.shadowOffsetY = 10;
+            ctx.fillStyle = '#fdfdfd';
+            ctx.fillRect(-size / 2 - border, -size / 2 - border, size + border * 2, size + border * 2);
+            ctx.shadowColor = 'transparent';
+            drawCroppedImage(img, -size/2, -size/2, size, size);
+            drawTape(size);
+            ctx.restore();
+        }
+
+        function drawTape(photoSize) {
+            const tapeWidth = photoSize * 0.3;
+            const tapeHeight = photoSize * 0.15;
+            ctx.fillStyle = 'rgba(210, 180, 140, 0.7)';
+            ctx.rotate((Math.random() - 0.5) * 0.4);
+            ctx.fillRect((photoSize / 2.5) * (Math.random() > 0.5 ? 1 : -1), -photoSize / 1.8, tapeWidth, tapeHeight);
+        }
+
+        function generateRandomChars(length) {
+            let result = '';
+            const characters = 'abcdefghijklmnopqrstuvwxyz';
+            for (let i = 0; i < length; i++) result += characters.charAt(Math.floor(Math.random() * characters.length));
+            return result;
+        }
+
+        function downloadCollage() {
+            drawCollage();
+            const filename = `rjcollage+${images.length} ${generateRandomChars(3)}.png`;
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const clientX = e.type.startsWith('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function startDrag(e) {
+            const coords = getCanvasCoordinates(e);
+            startX = coords.x;
+            startY = coords.y;
+
+            if (images.length === 5) {
+                const heartSize = canvas.width * 0.42;
+                ctx.beginPath();
+                drawHeartPath(canvas.width/2, canvas.height/2, heartSize);
+                if (ctx.isPointInPath(coords.x, coords.y)) {
+                    isDraggingHeartImage = true;
+                    initialHeartOffsetX = heartImageOffsetX;
+                    initialHeartOffsetY = heartImageOffsetY;
+                    canvas.style.cursor = 'grabbing';
+                    return;
+                }
+            }
+            
+            isDragging = true;
+            initialOffsetX = offsetX;
+            initialOffsetY = offsetY;
+            canvas.style.cursor = 'grabbing';
+        }
+
+        function drag(e) {
+            if (!isDragging && !isDraggingHeartImage) return;
+            e.preventDefault();
+            const coords = getCanvasCoordinates(e);
+            const dx = coords.x - startX;
+            const dy = coords.y - startY;
+
+            if (isDraggingHeartImage) {
+                heartImageOffsetX = initialHeartOffsetX + dx;
+                heartImageOffsetY = initialHeartOffsetY + dy;
+            } else if (isDragging) {
+                offsetX = initialOffsetX + dx;
+                offsetY = initialOffsetY + dy;
+            }
+            drawCollage();
+        }
+
+        function endDrag() { 
+            isDragging = false; 
+            isDraggingHeartImage = false;
+            if (images.length > 0) {
+                 updateCursor({ clientX: startX, clientY: startY, type: 'mousemove' }); 
+            }
+        }
+        
+        function updateCursor(e) {
+            if (isDragging || isDraggingHeartImage) return;
+            
+            if (images.length === 5) {
+                const coords = getCanvasCoordinates(e);
+                const heartSize = canvas.width * 0.42;
+                ctx.beginPath();
+                drawHeartPath(canvas.width / 2, canvas.height / 2, heartSize);
+                if (ctx.isPointInPath(coords.x, coords.y)) {
+                    canvas.style.cursor = 'move';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
+            } else if (images.length > 0) {
+                 canvas.style.cursor = 'grab';
+            } else {
+                 canvas.style.cursor = 'default';
+            }
+        }
+
+    </script>
+</body>
+</html>
